@@ -112,7 +112,7 @@ export function WorkspacePage() {
     <Stack gap={56}>
       <section className="oi-hero oi-fade-in">
         <div>
-          <div className="oi-eyebrow">Document recognition platform</div>
+          <div className="oi-eyebrow">Document recognition</div>
           <h1 className="oi-display">
             OCR <em>Intelligence</em>
           </h1>

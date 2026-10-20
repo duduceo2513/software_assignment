@@ -11,8 +11,8 @@
 }
 
 html {
-  /* scale the whole UI down a bit (text, spacing and widgets) */
-  zoom: 0.85;
+  /* scale the UI down: Mantine sizes everything in rem (avoid CSS zoom, it breaks measured widgets) */
+  font-size: 85%;
 }
 
 html,
