@@ -1,0 +1,54 @@
+.env
+*.log
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+db.sqlite3
+backend/media/*
+!backend/media/.gitkeep
+backend/staticfiles/
+node_modules/
+frontend/dist/
+.DS_Store
+
+
+
+
+
+
+
+
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Django
+*.sqlite3
+media/
+staticfiles/
+
+# Node / React
+node_modules/
+dist/
+.vite/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

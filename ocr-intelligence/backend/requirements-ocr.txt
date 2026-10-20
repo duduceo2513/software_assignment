@@ -1,0 +1,4 @@
+# Heavy OCR runtime. Needs Python 3.9-3.13 (no PaddlePaddle wheels for 3.14 yet).
+-r requirements.txt
+paddlepaddle==3.2.0
+paddleocr[doc-parser]>=3.3,<4

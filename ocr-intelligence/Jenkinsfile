@@ -1,0 +1,103 @@
+// OCR Intelligence - CI pipeline (Assignment 5).
+// Requires a Linux agent with: git, python3 (>= 3.10) + venv, docker. No GPU and no OCR weights needed:
+// unit tests use a stub OCR engine; the real-model test is marked "integration" and is NOT run here.
+//
+// If the Jenkins job points at a repository where this project lives in an "ocr-intelligence/" folder,
+// set the job's Script Path to "ocr-intelligence/Jenkinsfile" - the APP_DIR logic below handles both layouts.
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 45, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    triggers {
+        // Fires on GitHub webhook (Payload URL: https://<jenkins>/github-webhook/, event: push).
+        githubPush()
+        // Fallback when the webhook cannot reach Jenkins (e.g. local Jenkins): poll every ~5 minutes.
+        pollSCM('H/5 * * * *')
+    }
+
+    environment {
+        DJANGO_SECRET_KEY = 'ci-only-not-a-secret'
+        CELERY_TASK_ALWAYS_EAGER = '1'
+        PIP_DISABLE_PIP_VERSION_CHECK = '1'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.APP_DIR = fileExists('ocr-intelligence/backend') ? 'ocr-intelligence' : '.'
+                }
+                echo "Application directory: ${env.APP_DIR}"
+            }
+        }
+
+        stage('Install test dependencies') {
+            steps {
+                dir("${env.APP_DIR}/backend") {
+                    sh '''
+                        python3 -m venv .venv
+                        . .venv/bin/activate
+                        pip install -r requirements.txt
+                    '''
+                }
+            }
+        }
+
+        stage('Django checks') {
+            steps {
+                dir("${env.APP_DIR}/backend") {
+                    sh '''
+                        . .venv/bin/activate
+                        export DJANGO_SETTINGS_MODULE=config.test_settings
+                        python manage.py check
+                        python manage.py makemigrations --check --dry-run
+                    '''
+                }
+            }
+        }
+
+        stage('Unit tests') {
+            steps {
+                dir("${env.APP_DIR}/backend") {
+                    // File validation, API, status transitions, DOCX generation, downloads, error handling
+                    sh '''
+                        . .venv/bin/activate
+                        python -m pytest --junitxml=test-results.xml
+                    '''
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: "${env.APP_DIR}/backend/test-results.xml"
+                }
+            }
+        }
+
+        // Runs only when every previous stage succeeded.
+        stage('Docker build') {
+            steps {
+                dir("${env.APP_DIR}") {
+                    sh '''
+                        docker build -t ocr-intelligence-backend:${IMAGE_TAG} backend
+                        docker build --target prod -t ocr-intelligence-frontend:${IMAGE_TAG} frontend
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success { echo 'Pipeline status: SUCCESS' }
+        failure { echo 'Pipeline status: FAILURE' }
+        always  { cleanWs(deleteDirs: true, patterns: [[pattern: '**/.venv/**', type: 'INCLUDE']]) }
+    }
+}
