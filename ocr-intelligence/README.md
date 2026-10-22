@@ -122,7 +122,12 @@ Covered: health, job creation with 1 and 2 documents, unsupported/spoofed/corrup
 
 ## Jenkins (Assignment 5)
 
-1. Jenkins on a Linux agent with git, Python 3.10+ (venv), Docker; plugins: Pipeline, Git, GitHub, JUnit.
+1. Jenkins on a Linux agent with git, Python 3.10+ (venv), Docker; plugins: Pipeline, Git, GitHub, JUnit. The stock `jenkins/jenkins` image has no Python or Docker (build fails with `python3: not found`), so use the ready-made one from this repo on any machine:
+   ```powershell
+   docker compose -f docker-compose.jenkins.yml up -d --build
+   docker compose -f docker-compose.jenkins.yml exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+   ```
+   Open <http://localhost:8080>, install the suggested plugins, then create the job below.
 2. New item -> **Pipeline** -> *Pipeline script from SCM* -> Git -> your GitHub repo. Script Path: `Jenkinsfile` (or `ocr-intelligence/Jenkinsfile` if the project sits in a sub-folder).
 3. Trigger: GitHub repo -> Settings -> Webhooks -> Payload URL `https://<jenkins>/github-webhook/`, content type `application/json`, event *push*; in the job enable *GitHub hook trigger for GITScm polling*. If Jenkins is not reachable from GitHub, the `pollSCM` fallback in the Jenkinsfile checks every ~5 minutes.
 4. Stages: Checkout -> install deps -> Django checks (+ migrations up to date) -> unit tests (JUnit report) -> Docker build (backend + frontend prod image, only after tests pass) -> SUCCESS/FAILURE.

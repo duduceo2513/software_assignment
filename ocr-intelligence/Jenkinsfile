@@ -43,8 +43,17 @@ pipeline {
         stage('Install test dependencies') {
             steps {
                 dir("${env.APP_DIR}/backend") {
+                    // Uses the system python3 when it can create a venv; otherwise downloads a private
+                    // Python 3.12 via uv (no root needed), so a bare Jenkins image still works.
                     sh '''
-                        python3 -m venv .venv
+                        if command -v python3 >/dev/null 2>&1 && python3 -c "import venv, ensurepip" >/dev/null 2>&1; then
+                            python3 -m venv .venv
+                        else
+                            echo "python3 with venv not found - bootstrapping Python 3.12 with uv"
+                            export UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1
+                            curl -LsSf https://astral.sh/uv/install.sh | sh
+                            "$UV_INSTALL_DIR/uv" venv --python 3.12 --seed .venv
+                        fi
                         . .venv/bin/activate
                         pip install -r requirements.txt
                     '''
@@ -85,18 +94,27 @@ pipeline {
         // Runs only when every previous stage succeeded.
         stage('Docker build') {
             steps {
-                dir("${env.APP_DIR}") {
-                    sh '''
-                        docker build -t ocr-intelligence-backend:${IMAGE_TAG} backend
-                        docker build --target prod -t ocr-intelligence-frontend:${IMAGE_TAG} frontend
-                    '''
+                script {
+                    def dockerReady = sh(returnStatus: true, script: 'docker info >/dev/null 2>&1') == 0
+                    if (!dockerReady) {
+                        // Tests passed, but this Jenkins cannot reach Docker (see jenkins/Dockerfile and README).
+                        unstable('Docker is not available on this Jenkins - image build skipped')
+                    } else {
+                        dir("${env.APP_DIR}") {
+                            sh '''
+                                docker build -t ocr-intelligence-backend:${IMAGE_TAG} backend
+                                docker build --target prod -t ocr-intelligence-frontend:${IMAGE_TAG} frontend
+                            '''
+                        }
+                    }
                 }
             }
         }
     }
 
     post {
-        success { echo 'Pipeline status: SUCCESS' }
+        success  { echo 'Pipeline status: SUCCESS' }
+        unstable { echo 'Pipeline status: UNSTABLE (tests passed, Docker image build skipped)' }
         failure { echo 'Pipeline status: FAILURE' }
         always  { cleanWs(deleteDirs: true, patterns: [[pattern: '**/.venv/**', type: 'INCLUDE']]) }
     }
