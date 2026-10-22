@@ -1,4 +1,4 @@
-// OCR Intelligence - CI pipeline (Assignment 5).
+// OCR Intelligence - CI pipeline 
 // Requires a Linux agent with: git, python3 (>= 3.10) + venv, docker. No GPU and no OCR weights needed:
 // unit tests use a stub OCR engine; the real-model test is marked "integration" and is NOT run here.
 //
